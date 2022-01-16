@@ -3,7 +3,6 @@ const router = express.Router();
 const { check, validationResult } = require("express-validator");
 const auth = require("../../middleware/auth");
 const Post = require("../../models/Post");
-const User = require("../../models/User");
 
 // @route   POST api/posts
 // @desc    Create post
@@ -105,7 +104,7 @@ router.put("/:post_id/likes", auth, async (req, res) => {
   }
 });
 
-// @route   PUT api/posts/:post_id/likes
+// @route   PUT api/posts/:post_id/unlike
 // @desc    Unike a post
 // @access  Private
 router.put("/:post_id/unlike", auth, async (req, res) => {
@@ -157,9 +156,6 @@ router.post(
           .json({ errors: [{ msg: "Post doesn't exist." }] });
       }
 
-      //get current user object to extract name and gravatar
-      const user = await User.findById(req.user.id).select("-password");
-
       const { text } = req.body;
 
       const comment = {
@@ -182,8 +178,18 @@ router.post(
 // @access  Private
 router.put(
   "/:post_id/coins",
-  [auth, [check("coins", "Coins is required.").isNumeric()]],
+  [
+    auth,
+    [
+      check("coins", "Coins is required.").exists()
+    ]
+  ],
   async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
     try {
       const post = await Post.findById(req.params.post_id);
 
@@ -194,6 +200,11 @@ router.put(
       }
 
       const { coins } = req.body;
+
+      if (typeof coins !== "number")
+        return res
+          .status(400)
+          .json({ errors: [{ msg: "Coins should be a number." }] });
 
       post.coins += coins;
 
